@@ -5,46 +5,56 @@ fishing_end = time(17, 0)
 major_weight = 2
 minor_weight = 1
 
+from astral import LocationInfo
+from astral.sun import sun
+from astral.moon import moonrise, moonset
+
 def get_solunar_data(city, start_date, end_date):
     """
     Returnerar solunar-data för angiven stad och datumintervall.
-    För närvarande stöds endast 'Åndalsnes' och datumen 2025-09-10 till 2025-09-13.
+    Hämtar koordinater och beräknar sol- och måntider med astral.
     """
-    if city.lower() != "åndalsnes":
-        raise ValueError("Endast 'Åndalsnes' stöds i denna version.")
-    all_data = {
-        "2025-09-10": {
-            "major": [("2025-09-10 02:35", "2025-09-10 04:35"),
-                      ("2025-09-10 14:31", "2025-09-10 16:31")],
-            "minor": [("2025-09-10 10:07", "2025-09-10 12:07"),
-                      ("2025-09-10 19:25", "2025-09-10 20:25")]
-        },
-        "2025-09-11": {
-            "major": [("2025-09-11 03:31", "2025-09-11 05:31"),
-                      ("2025-09-11 15:26", "2025-09-11 17:26")],
-            "minor": [("2025-09-11 12:06", "2025-09-11 14:06"),
-                      ("2025-09-11 19:45", "2025-09-11 20:45")]
-        },
-        "2025-09-12": {
-            "major": [("2025-09-12 04:42", "2025-09-12 06:42"),
-                      ("2025-09-12 16:26", "2025-09-12 18:26")],
-            "minor": [("2025-09-12 14:17", "2025-09-12 16:17"),
-                      ("2025-09-12 18:36", "2025-09-12 20:36")]
-        },
-        "2025-09-13": {
-            "major": [("2025-09-13 05:09", "2025-09-13 07:09"),
-                      ("2025-09-13 17:29", "2025-09-13 19:29")],
-            "minor": [("2025-09-13 16:55", "2025-09-13 17:55"),
-                      ("2025-09-13 18:04", "2025-09-13 20:04")]
-        }
+    # Lägg till fler städer vid behov
+    city_coords = {
+        "åndalsnes": {"lat": 62.5667, "lon": 7.6911, "region": "Norway"},
     }
+    city_key = city.lower()
+    if city_key not in city_coords:
+        raise ValueError(f"Stad '{city}' stöds inte.")
+    coords = city_coords[city_key]
+    location = LocationInfo(city, coords["region"], "Europe/Oslo", coords["lat"], coords["lon"])
 
     result = {}
     current = start_date
     while current <= end_date:
-        key = current.strftime("%Y-%m-%d")
-        if key in all_data:
-            result[key] = all_data[key]
+        date_str = current.strftime("%Y-%m-%d")
+        s = sun(location.observer, date=current, tzinfo=location.timezone)
+        try:
+            mrise = moonrise(location.observer, date=current, tzinfo=location.timezone)
+        except Exception:
+            mrise = None
+        try:
+            mset = moonset(location.observer, date=current, tzinfo=location.timezone)
+        except Exception:
+            mset = None
+
+        # Enkla solunarperioder: major = moonrise/set, minor = soluppgång/nedgång
+        major = []
+        if mrise and mset:
+            # Major: 2h centered on moonrise and moonset
+            major.append(( (mrise - timedelta(hours=1)).strftime("%Y-%m-%d %H:%M"), (mrise + timedelta(hours=1)).strftime("%Y-%m-%d %H:%M") ))
+            major.append(( (mset - timedelta(hours=1)).strftime("%Y-%m-%d %H:%M"), (mset + timedelta(hours=1)).strftime("%Y-%m-%d %H:%M") ))
+        elif mrise:
+            major.append(( (mrise - timedelta(hours=1)).strftime("%Y-%m-%d %H:%M"), (mrise + timedelta(hours=1)).strftime("%Y-%m-%d %H:%M") ))
+        elif mset:
+            major.append(( (mset - timedelta(hours=1)).strftime("%Y-%m-%d %H:%M"), (mset + timedelta(hours=1)).strftime("%Y-%m-%d %H:%M") ))
+
+        minor = []
+        # Minor: 1h centered on sunrise and sunset
+        minor.append(( (s["sunrise"] - timedelta(minutes=30)).strftime("%Y-%m-%d %H:%M"), (s["sunrise"] + timedelta(minutes=30)).strftime("%Y-%m-%d %H:%M") ))
+        minor.append(( (s["sunset"] - timedelta(minutes=30)).strftime("%Y-%m-%d %H:%M"), (s["sunset"] + timedelta(minutes=30)).strftime("%Y-%m-%d %H:%M") ))
+
+        result[date_str] = {"major": major, "minor": minor}
         current += timedelta(days=1)
     return result
 
@@ -81,8 +91,8 @@ def calculate_solunar_points(solunar_data, fishing_start, fishing_end, major_wei
     return results
 
 city = "Åndalsnes"
-start_date = datetime(2025, 9, 10)
-end_date = datetime(2025, 9, 13)
+start_date = datetime(2025, 9, 1)
+end_date = datetime(2025, 9, 14)
 solunar_data = get_solunar_data(city, start_date, end_date)
 results = calculate_solunar_points(solunar_data, fishing_start, fishing_end, major_weight, minor_weight)
 
