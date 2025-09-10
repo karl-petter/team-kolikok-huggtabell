@@ -54,7 +54,12 @@ def get_solunar_data(city, start_date, end_date):
         minor.append(( (s["sunrise"] - timedelta(minutes=30)).strftime("%Y-%m-%d %H:%M"), (s["sunrise"] + timedelta(minutes=30)).strftime("%Y-%m-%d %H:%M") ))
         minor.append(( (s["sunset"] - timedelta(minutes=30)).strftime("%Y-%m-%d %H:%M"), (s["sunset"] + timedelta(minutes=30)).strftime("%Y-%m-%d %H:%M") ))
 
-        result[date_str] = {"major": major, "minor": minor}
+        # Sort periods by start time
+        def sort_key(period):
+            return period[0]
+        major_sorted = sorted(major, key=sort_key)
+        minor_sorted = sorted(minor, key=sort_key)
+        result[date_str] = {"major": major_sorted, "minor": minor_sorted}
         current += timedelta(days=1)
     return result
 
