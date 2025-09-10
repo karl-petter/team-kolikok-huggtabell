@@ -92,7 +92,7 @@ def calculate_solunar_points(solunar_data, fishing_start, fishing_end, major_wei
 
         results.append((date_str, int(total_points)))
 
-    results.sort(key=lambda x: x[1], reverse=True)
+    results.sort(key=lambda x: x[0])
     return results
 
 city = "Åndalsnes"
